@@ -1,0 +1,206 @@
+{
+  "name": "YouTube Metadata",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [-912, -176],
+      "id": "ecb0688d-1dbe-4ff1-b2a6-777619679b4d",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Go through each item coming from the previous node\nreturn items.map(item => {\n  const youtubeUrl = item.json.url || ''; // Change 'url' to match your actual field name\n  \n  let videoId = '';\n\n  try {\n    // Extract ID from standard YouTube links (watch?v=)\n    if (youtubeUrl.includes('v=')) {\n      videoId = youtubeUrl.split('v=')[1].split('&')[0];\n    } \n    // Handle short links like https://youtu.be/ID\n    else if (youtubeUrl.includes('youtu.be/')) {\n      videoId = youtubeUrl.split('youtu.be/')[1].split('?')[0];\n    } \n    // Handle embed links\n    else if (youtubeUrl.includes('/embed/')) {\n      videoId = youtubeUrl.split('/embed/')[1].split('?')[0];\n    } \n    // Fallback: last path segment\n    else {\n      videoId = youtubeUrl.split('/').pop();\n    }\n\n  } catch (err) {\n    videoId = '';\n  }\n\n  // Return URL & extracted videoId in each row\n  return {\n    json: {\n      ...item.json,\n      videoId\n    }\n  };\n});\n\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-496, -176],
+      "id": "d8dde929-aa30-424f-a141-b602e0ae07f9",
+      "name": "Code"
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "readRows",
+        "workbook": {
+          "__rl": true,
+          "value": "/* Insert your Microsoft Excel workbook ID here */",
+          "mode": "list",
+          "cachedResultName": "Book",
+          "cachedResultUrl": "/* Insert your OneDrive/Excel workbook URL here */"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "/* Insert your Microsoft Excel worksheet ID here */",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "/* Insert your OneDrive/Excel worksheet URL here */"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.1,
+      "position": [-704, -176],
+      "id": "e9124ce6-103f-4141-bce2-26de9a17d9c6",
+      "name": "Get rows from sheet",
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "/* Insert your Microsoft Excel OAuth2 credential ID here */",
+          "name": "/* Insert your Microsoft Excel credential name here */"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/youtube/v3/videos?part=snippet&id={{$json[\"videoId\"]}}&key=/* Insert your YouTube API key here */",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [-288, 16],
+      "id": "9433ca14-d4c8-41b4-ae53-a78b0dfffdbe",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  const inputJson = item.json; // full input per item\n  const itemData = inputJson.items?.[0] || {};\n  const snippet = itemData.snippet || {};\n\n  const youtubeReturnedId = itemData.id || inputJson.videoId || 'No ID found';\n  \n  const title = snippet.title || 'No title found';\n  const description = snippet.description || 'No description found';\n  const hashtags = description.match(/#[\\w\\d_-]+/g) || [];\n\n  return {\n    json: {\n      videoId: youtubeReturnedId,\n      title,\n      description,\n      hashtags: hashtags.join(', ')\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [-80, 16],
+      "id": "919a1743-848f-4ad2-8e76-823b565009de",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [128, -160],
+      "id": "9f4947bf-435e-434d-93f0-3c0e88a46a30",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "resource": "worksheet",
+        "operation": "append",
+        "workbook": {
+          "__rl": true,
+          "value": "/* Insert your Microsoft Excel workbook ID here */",
+          "mode": "list",
+          "cachedResultName": "Final",
+          "cachedResultUrl": "/* Insert your OneDrive/Excel workbook URL here */"
+        },
+        "worksheet": {
+          "__rl": true,
+          "value": "/* Insert your Microsoft Excel worksheet ID here */",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "/* Insert your OneDrive/Excel worksheet URL here */"
+        },
+        "dataMode": "autoMap",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.microsoftExcel",
+      "typeVersion": 2.1,
+      "position": [304, -160],
+      "id": "c41e22ff-5701-463a-ba25-553365692a29",
+      "name": "Append data to sheet",
+      "credentials": {
+        "microsoftExcelOAuth2Api": {
+          "id": "/* Insert your Microsoft Excel OAuth2 credential ID here */",
+          "name": "/* Insert your Microsoft Excel credential name here */"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Get rows from sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get rows from sheet": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Append data to sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "058d4675-ce68-40e4-9e22-331ab4229b79",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "/* Insert your n8n instance ID here if needed */"
+  },
+  "id": "oG5ysObcA1XLcABc",
+  "tags": []
+}
